@@ -17,8 +17,12 @@ DEFAULT_DB_PATH = os.path.join(INSTANCE_DIR, "threatlens.db")
 def _database_uri() -> str:
     uri = os.getenv("DATABASE_URL")
     if uri:
-        # Render and some providers still expose postgres:// URLs.
-        return uri.replace("postgres://", "postgresql://", 1)
+        # Force SQLAlchemy to use psycopg v3, which is installed in requirements.
+        if uri.startswith("postgres://"):
+            return uri.replace("postgres://", "postgresql+psycopg://", 1)
+        if uri.startswith("postgresql://"):
+            return uri.replace("postgresql://", "postgresql+psycopg://", 1)
+        return uri
     return f"sqlite:///{DEFAULT_DB_PATH}"
 
 

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ThreatLens — Dashboard</title>
+<link rel="stylesheet" href="/frontend/css/dashboard.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <svg class="nav-logo" viewBox="0 0 40 40" fill="none">
+      <polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00ffe7" stroke-width="1.5"/>
+      <circle cx="20" cy="20" r="5" fill="#00ffe7"/>
+    </svg>
+    <span>THREAT<strong>LENS</strong></span>
+  </div>
+  <div class="nav-links">
+    <button class="nav-tab active" onclick="showTab('analyze', this)">ANALYZE</button>
+    <button class="nav-tab" onclick="showTab('history', this)">HISTORY</button>
+    <button class="nav-tab" onclick="showTab('settings', this)">SETTINGS</button>
+  </div>
+  <div class="nav-user">
+    <span class="user-badge">{{ username }}</span>
+    <a href="/logout" class="logout-btn">LOGOUT</a>
+  </div>
+</nav>
+
+<!-- STATS BAR -->
+<div class="stats-bar" id="statsBar">
+  <div class="stat-pill"><span class="stat-num" id="statTotal">—</span><span class="stat-lbl">TOTAL SCANS</span></div>
+  <div class="stat-pill safe"><span class="stat-num" id="statSafe">—</span><span class="stat-lbl">SAFE</span></div>
+  <div class="stat-pill risky"><span class="stat-num" id="statRisky">—</span><span class="stat-lbl">SUSPICIOUS</span></div>
+  <div class="stat-pill danger"><span class="stat-num" id="statDanger">—</span><span class="stat-lbl">DANGEROUS</span></div>
+</div>
+
+<!-- ═══ ANALYZE TAB ═══ -->
+<div class="tab-pane active" id="tab-analyze">
+  <div class="analyze-hero">
+    <h2 class="hero-title">URL THREAT SCANNER</h2>
+    <p class="hero-sub">3-stage AI pipeline: ML pattern analysis → NLP content scan → Threat intelligence APIs</p>
+
+    <div class="url-input-group">
+      <div class="url-input-wrap">
+        <span class="url-prefix">🔍</span>
+        <input type="text" id="urlInput" placeholder="https://example.com or paste any URL..." class="url-input"/>
+        <button class="scan-btn" id="scanBtn" onclick="scanURL()">SCAN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIPELINE STAGES (animated progress) -->
+  <div class="pipeline" id="pipeline" style="display:none">
+    <div class="pipe-stage" id="stage1">
+      <div class="stage-icon">01</div>
+      <div class="stage-info">
+        <span class="stage-name">ML ANALYSIS</span>
+        <span class="stage-desc">URL pattern & structure</span>
+      </div>
+      <div class="stage-status" id="st1">WAITING</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-stage" id="stage2">
+      <div class="stage-icon">02</div>
+      <div class="stage-info">
+        <span class="stage-name">NLP SCAN</span>
+        <span class="stage-desc">Page content analysis</span>
+      </div>
+      <div class="stage-status" id="st2">WAITING</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-stage" id="stage3">
+      <div class="stage-icon">03</div>
+      <div class="stage-info">
+        <span class="stage-name">THREAT APIs</span>
+        <span class="stage-desc">VirusTotal + AbuseIPDB</span>
+      </div>
+      <div class="stage-status" id="st3">WAITING</div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results" class="results-container" style="display:none">
+
+    <!-- VERDICT CARD -->
+    <div class="verdict-card" id="verdictCard">
+      <div class="verdict-left">
+        <div class="verdict-badge" id="verdictBadge">SCANNING</div>
+        <div class="verdict-url" id="verdictUrl"></div>
+        <div class="verdict-msg" id="verdictMsg"></div>
+      </div>
+      <div class="verdict-right">
+        <div class="threat-gauge">
+          <svg viewBox="0 0 120 70" class="gauge-svg">
+            <path d="M10,60 A50,50 0 0,1 110,60" fill="none" stroke="#1a2a1a" stroke-width="12" stroke-linecap="round"/>
+            <path d="M10,60 A50,50 0 0,1 110,60" fill="none" stroke="#00ffe7" stroke-width="12"
+                  stroke-linecap="round" stroke-dasharray="157" stroke-dashoffset="157"
+                  id="gaugePath" style="transition:stroke-dashoffset 1.2s ease, stroke 0.5s"/>
+          </svg>
+          <div class="gauge-score" id="gaugeScore">0%</div>
+          <div class="gauge-label">THREAT SCORE</div>
+        </div>
+        <div class="confidence-row">
+          <span>Confidence:</span>
+          <span id="confidenceVal">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="score-dashboard">
+      <div class="score-legend-card">
+        <h3 class="section-title">SCORE COLOR GUIDE</h3>
+        <div class="score-legend-list" id="scoreLegend"></div>
+      </div>
+      <div class="score-legend-card">
+        <h3 class="section-title">SCORING WEIGHTS</h3>
+        <div class="weights-grid" id="weightsGrid"></div>
+        <p class="section-summary" id="weightsNote"></p>
+      </div>
+    </div>
+
+    <!-- SCORE BREAKDOWN -->
+    <div class="section-grid">
+      <div class="result-section">
+        <h3 class="section-title"><span class="dot ml"></span> ML SCORE</h3>
+        <div class="score-bar-wrap">
+          <div class="score-bar ml-bar" id="mlBar"></div>
+          <span id="mlScore">—</span>
+        </div>
+        <div class="risk-badge" id="mlRisk"></div>
+        <p class="section-summary" id="mlSummary"></p>
+        <div class="flags-list" id="mlFlags"></div>
+      </div>
+
+      <div class="result-section">
+        <h3 class="section-title"><span class="dot nlp"></span> NLP SCORE</h3>
+        <div class="score-bar-wrap">
+          <div class="score-bar nlp-bar" id="nlpBar"></div>
+          <span id="nlpScore">—</span>
+        </div>
+        <div class="risk-badge" id="nlpRisk"></div>
+        <p class="section-summary" id="nlpSummary"></p>
+        <div class="flags-list" id="nlpFlags"></div>
+      </div>
+
+      <div class="result-section">
+        <h3 class="section-title"><span class="dot api"></span> API INTEL</h3>
+        <div class="score-bar-wrap">
+          <div class="score-bar api-bar" id="apiBar"></div>
+          <span id="apiScore">—</span>
+        </div>
+        <div class="risk-badge" id="apiRisk"></div>
+        <p class="section-summary" id="apiSummary"></p>
+        <div class="flags-list" id="apiFlags"></div>
+      </div>
+    </div>
+
+    <!-- DETAILED ANALYSIS -->
+    <div class="detail-grid">
+      <!-- ML Features -->
+      <div class="detail-card">
+        <h4 class="detail-title">URL FEATURES EXTRACTED</h4>
+        <div id="mlFeatures" class="kv-list"></div>
+      </div>
+
+      <!-- NLP Page Info -->
+      <div class="detail-card">
+        <h4 class="detail-title">PAGE CONTENT ANALYSIS</h4>
+        <div id="nlpPageInfo" class="kv-list"></div>
+      </div>
+
+      <!-- API results -->
+      <div class="detail-card">
+        <h4 class="detail-title">THREAT INTELLIGENCE</h4>
+        <div id="apiDetails" class="kv-list"></div>
+      </div>
+    </div>
+
+    <!-- ALL FLAGS -->
+    <div class="all-flags-card" id="allFlagsCard" style="display:none">
+      <h4 class="detail-title">⚠ ALL THREAT INDICATORS</h4>
+      <div id="allFlagsList"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ HISTORY TAB ═══ -->
+<div class="tab-pane" id="tab-history">
+  <div class="history-header">
+    <h2 class="section-heading">SCAN HISTORY</h2>
+    <button class="btn-sm" onclick="loadHistory()">↻ REFRESH</button>
+  </div>
+  <div id="historyTable" class="history-table"></div>
+</div>
+
+<!-- ═══ SETTINGS TAB ═══ -->
+<div class="tab-pane" id="tab-settings">
+  <div class="settings-card">
+    <h2 class="section-heading">API CONFIGURATION</h2>
+    <p class="settings-desc">Provide your API keys to enable full threat intelligence scanning. Keys are stored locally in your browser only.</p>
+
+    <div class="form-group">
+      <label>VIRUSTOTAL API KEY</label>
+      <div class="input-wrap">
+        <input type="password" id="vtKey" placeholder="Paste your VirusTotal v3 API key"/>
+        <span class="input-glow"></span>
+      </div>
+      <a class="key-link" href="https://www.virustotal.com/gui/my-apikey" target="_blank">Get free key →</a>
+    </div>
+
+    <div class="form-group">
+      <label>ABUSEIPDB API KEY</label>
+      <div class="input-wrap">
+        <input type="password" id="abuseKey" placeholder="Paste your AbuseIPDB API key"/>
+        <span class="input-glow"></span>
+      </div>
+      <a class="key-link" href="https://www.abuseipdb.com/account/api" target="_blank">Get free key →</a>
+    </div>
+
+    <button class="btn-primary" onclick="saveKeys()">SAVE KEYS</button>
+    <div id="saveAlert" class="alert hidden" style="margin-top:12px"></div>
+
+    <div class="info-box">
+      <strong>ℹ Without API keys:</strong> ThreatLens still runs full ML + NLP analysis (Stages 1 & 2). API keys only unlock Stage 3 (VirusTotal & AbuseIPDB lookups).
+    </div>
+  </div>
+</div>
+
+<script src="/frontend/js/dashboard.js"></script>
+</body>
+</html>

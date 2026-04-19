@@ -53,7 +53,12 @@ function getKeys() {
 // ── Main scan ─────────────────────────────────────────────────────────────────
 async function scanURL() {
   const urlInput = document.getElementById('urlInput').value.trim();
-  if (!urlInput) { alert('Please enter a URL to scan.'); return; }
+  hideScanAlert();
+  if (!urlInput) { showScanAlert('Please enter a URL to scan.'); return; }
+  if (!isValidScanInput(urlInput)) {
+    showScanAlert('Enter a valid URL like example.com or https://example.com');
+    return;
+  }
 
   const btn = document.getElementById('scanBtn');
   btn.textContent = 'SCANNING...';
@@ -79,7 +84,7 @@ async function scanURL() {
     });
     const data = await res.json();
 
-    if (data.error) throw new Error(data.error);
+    if (!res.ok || data.error) throw new Error(data.error || 'Scan failed.');
 
     // Mark all done
     setStage(1, 'done', 'DONE');
@@ -94,7 +99,7 @@ async function scanURL() {
     setStage(1, 'error', 'ERROR');
     setStage(2, 'error', 'ERROR');
     setStage(3, 'error', 'ERROR');
-    alert('Analysis failed: ' + e.message);
+    showScanAlert('Analysis failed: ' + e.message);
   } finally {
     btn.textContent = 'SCAN';
     btn.disabled    = false;
@@ -327,6 +332,38 @@ function setStage(num, cls, status) {
 }
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function isValidScanInput(value) {
+  const raw = (value || '').trim();
+  if (!raw || raw.length < 4 || /\s/.test(raw)) return false;
+
+  try {
+    const normalized = raw.startsWith('http://') || raw.startsWith('https://')
+      ? raw
+      : `https://${raw}`;
+    const parsed = new URL(normalized);
+    const host = (parsed.hostname || '').toLowerCase();
+    if (!host || !host.includes('.')) return false;
+    if (host.startsWith('.') || host.endsWith('.') || host.includes('..')) return false;
+    return /^[a-z0-9.-]+$/i.test(host);
+  } catch {
+    return false;
+  }
+}
+
+function showScanAlert(message) {
+  const el = document.getElementById('scanAlert');
+  el.textContent = message;
+  el.className = 'alert error';
+}
+
+function hideScanAlert() {
+  const el = document.getElementById('scanAlert');
+  if (el) {
+    el.textContent = '';
+    el.className = 'alert hidden';
+  }
+}
 
 function scoreToColor(score) {
   if (score < 0.2)  return '#22c55e';

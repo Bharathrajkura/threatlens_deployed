@@ -62,12 +62,13 @@
 
 <script>
 async function doLogin() {
-  const email    = document.getElementById('email').value.trim();
+  const email    = document.getElementById('email').value.trim().toLowerCase();
   const password = document.getElementById('password').value;
   const btn      = document.getElementById('loginBtn');
-  const alert    = document.getElementById('alertBox');
+  const emailRe  = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
   if (!email || !password) { showAlert('Please fill in all fields.', 'error'); return; }
+  if (!emailRe.test(email)) { showAlert('Enter a valid email address.', 'error'); return; }
 
   btn.querySelector('.btn-text').classList.add('hidden');
   btn.querySelector('.btn-loader').classList.remove('hidden');

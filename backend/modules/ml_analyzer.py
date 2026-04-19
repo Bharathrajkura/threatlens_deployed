@@ -22,7 +22,8 @@ import numpy as np
 from urllib.parse import urlparse
 from collections import Counter
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'ml_model_v2.joblib')
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'ml_model.joblib')
+ALT_MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'ml_model_v2.joblib')
 
 SUSPICIOUS_TLDS = {
     ".tk",".ml",".ga",".cf",".gq",".xyz",".top",".club",".work",
@@ -298,7 +299,14 @@ class MLAnalyzer:
     def _load_or_train(self):
         if os.path.exists(MODEL_PATH):
             return joblib.load(MODEL_PATH)
-        return self._train()
+        if os.path.exists(ALT_MODEL_PATH):
+            return joblib.load(ALT_MODEL_PATH)
+        if os.getenv("ALLOW_MODEL_TRAINING", "0") == "1":
+            return self._train()
+        raise FileNotFoundError(
+            "ML model file is missing. Add backend/models/ml_model.joblib to the deployment package "
+            "or set ALLOW_MODEL_TRAINING=1 only for local regeneration."
+        )
 
     def _train(self):
         from sklearn.ensemble import GradientBoostingClassifier

@@ -76,12 +76,16 @@
 <script>
 async function doRegister() {
   const username = document.getElementById('username').value.trim();
-  const email    = document.getElementById('email').value.trim();
+  const email    = document.getElementById('email').value.trim().toLowerCase();
   const password = document.getElementById('password').value;
   const confirm  = document.getElementById('confirm').value;
   const btn      = document.getElementById('regBtn');
+  const emailRe  = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+  const usernameRe = /^[A-Za-z0-9_]{3,30}$/;
 
   if (!username || !email || !password) { showAlert('All fields required.', 'error'); return; }
+  if (!usernameRe.test(username))       { showAlert('Username must be 3-30 characters and use only letters, numbers, or underscores.', 'error'); return; }
+  if (!emailRe.test(email))             { showAlert('Enter a valid email address.', 'error'); return; }
   if (password.length < 6)              { showAlert('Password must be at least 6 characters.', 'error'); return; }
   if (password !== confirm)             { showAlert('Passwords do not match.', 'error'); return; }
 

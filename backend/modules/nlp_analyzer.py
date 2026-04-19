@@ -22,7 +22,8 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
-NLP_MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'nlp_model_v2.joblib')
+NLP_MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'nlp_model.joblib')
+ALT_NLP_MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'nlp_model_v2.joblib')
 
 # ── Full-phrase lexicons (less noise than single words) ───────────────────────
 
@@ -274,7 +275,15 @@ class NLPAnalyzer:
         if os.path.exists(NLP_MODEL_PATH):
             bundle = joblib.load(NLP_MODEL_PATH)
             return bundle
-        return self._train()
+        if os.path.exists(ALT_NLP_MODEL_PATH):
+            bundle = joblib.load(ALT_NLP_MODEL_PATH)
+            return bundle
+        if os.getenv("ALLOW_MODEL_TRAINING", "0") == "1":
+            return self._train()
+        raise FileNotFoundError(
+            "NLP model file is missing. Add backend/models/nlp_model.joblib to the deployment package "
+            "or set ALLOW_MODEL_TRAINING=1 only for local regeneration."
+        )
 
     def _train(self):
         from sklearn.feature_extraction.text import TfidfVectorizer

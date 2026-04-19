@@ -4,6 +4,8 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_bcrypt import Bcrypt
 from datetime import datetime
 import os
+import re
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,6 +26,39 @@ def _database_uri() -> str:
             return uri.replace("postgresql://", "postgresql+psycopg://", 1)
         return uri
     return f"sqlite:///{DEFAULT_DB_PATH}"
+
+
+EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,30}$")
+
+
+def _is_valid_email(email: str) -> bool:
+    return bool(EMAIL_RE.fullmatch((email or "").strip()))
+
+
+def _is_valid_username(username: str) -> bool:
+    return bool(USERNAME_RE.fullmatch((username or "").strip()))
+
+
+def _looks_like_url(value: str) -> bool:
+    raw = (value or "").strip()
+    if not raw or len(raw) < 4 or any(ch.isspace() for ch in raw):
+        return False
+
+    candidate = raw if raw.startswith(("http://", "https://")) else f"https://{raw}"
+    try:
+        parsed = urlparse(candidate)
+    except Exception:
+        return False
+
+    host = (parsed.netloc or "").strip().lower()
+    if not host or "." not in host:
+        return False
+    if host.startswith(".") or host.endswith(".") or ".." in host:
+        return False
+    if not re.fullmatch(r"[A-Za-z0-9.-]+", host):
+        return False
+    return True
 
 
 os.makedirs(INSTANCE_DIR, exist_ok=True)
@@ -109,12 +144,23 @@ def register():
         return redirect(url_for('dashboard'))
     if request.method == 'POST':
         data = request.get_json()
-        if User.query.filter_by(email=data.get('email')).first():
+        username = (data.get('username') or '').strip()
+        email = (data.get('email') or '').strip().lower()
+        password = data.get('password') or ''
+
+        if not _is_valid_username(username):
+            return jsonify({'success': False, 'message': 'Username must be 3-30 characters and use only letters, numbers, or underscores.'}), 400
+        if not _is_valid_email(email):
+            return jsonify({'success': False, 'message': 'Enter a valid email address.'}), 400
+        if len(password) < 6:
+            return jsonify({'success': False, 'message': 'Password must be at least 6 characters.'}), 400
+
+        if User.query.filter_by(email=email).first():
             return jsonify({'success': False, 'message': 'Email already registered'}), 400
-        if User.query.filter_by(username=data.get('username')).first():
+        if User.query.filter_by(username=username).first():
             return jsonify({'success': False, 'message': 'Username already taken'}), 400
-        hashed = bcrypt.generate_password_hash(data.get('password')).decode('utf-8')
-        user = User(username=data['username'], email=data['email'], password=hashed)
+        hashed = bcrypt.generate_password_hash(password).decode('utf-8')
+        user = User(username=username, email=email, password=hashed)
         db.session.add(user)
         db.session.commit()
         login_user(user)
@@ -149,6 +195,8 @@ def analyze():
 
     if not url:
         return jsonify({'error': 'URL is required'}), 400
+    if not _looks_like_url(url):
+        return jsonify({'error': 'Enter a valid URL like example.com or https://example.com'}), 400
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
 
